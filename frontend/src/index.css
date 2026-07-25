@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Theme Base (Dark Glassmorphism) */
+  --bg-dark: #090d16;
+  --bg-card: rgba(17, 24, 39, 0.7);
+  --bg-card-hover: rgba(31, 41, 55, 0.8);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(255, 255, 255, 0.15);
+
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+
+  /* Accent Fallback */
+  --accent-primary: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.25);
+}
+
+/* Domain Specific Themes */
+body[data-portal="hr"] {
+  --portal-accent: #10b981;
+  --portal-gradient: linear-gradient(135deg, #059669, #10b981);
+  --portal-glow: rgba(16, 185, 129, 0.25);
+  --portal-bg-subtle: rgba(16, 185, 129, 0.06);
+  --portal-border: rgba(16, 185, 129, 0.3);
+}
+
+body[data-portal="it"] {
+  --portal-accent: #06b6d4;
+  --portal-gradient: linear-gradient(135deg, #0284c7, #06b6d4);
+  --portal-glow: rgba(6, 182, 212, 0.25);
+  --portal-bg-subtle: rgba(6, 182, 212, 0.06);
+  --portal-border: rgba(6, 182, 212, 0.3);
+}
+
+body[data-portal="support"] {
+  --portal-accent: #a855f7;
+  --portal-gradient: linear-gradient(135deg, #7e22ce, #a855f7);
+  --portal-glow: rgba(168, 85, 247, 0.25);
+  --portal-bg-subtle: rgba(168, 85, 247, 0.06);
+  --portal-border: rgba(168, 85, 247, 0.3);
+}
+
+body[data-portal="sales"] {
+  --portal-accent: #f59e0b;
+  --portal-gradient: linear-gradient(135deg, #d97706, #f59e0b);
+  --portal-glow: rgba(245, 158, 11, 0.25);
+  --portal-bg-subtle: rgba(245, 158, 11, 0.06);
+  --portal-border: rgba(245, 158, 11, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Card Style */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-interactive {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-interactive:hover {
+  border-color: var(--border-highlight);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Pulsing Online Status Indicator */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Streaming Blinking Cursor */
+.streaming-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background-color: var(--portal-accent, var(--accent-primary));
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: blink 0.8s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Badge Styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.badge-portal {
+  background: var(--portal-bg-subtle, rgba(59, 130, 246, 0.1));
+  color: var(--portal-accent, #3b82f6);
+  border: 1px solid var(--portal-border, rgba(59, 130, 246, 0.3));
+}
