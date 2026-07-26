@@ -40,7 +40,7 @@ graph TD
     State -->|"Entry Point"| IntentClassifier["Zero-Shot Intent Classifier Node<br/>ChatGroq.with_structured_output(QueryIntent)"]
     
     %% Intent Routing Branching
-    IntentClassifier -->|"conversational: 'hi', 'who are you'"| Generator["Generate Node<br/>Fast LLM Response (< 0.4s)"]
+    IntentClassifier -->|"conversational: 'hi', 'who are you'"| Generator["Generate Node<br/>Fast LLM Response (under 0.4s)"]
     IntentClassifier -->|"domain_query: 'PTO Policy'"| RetrieveNode["Execute Hybrid Retrieve Node<br/>app/db/hybrid_retriever.py"]
     
     %% Scoped Hybrid Retrieval
