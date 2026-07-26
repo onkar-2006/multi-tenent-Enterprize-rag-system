@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Bot, User, RefreshCw, Sparkles, AlertCircle, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
 import CitationCards from './CitationCards';
 import { API_BASE_URL } from '../config/portals';
 
@@ -19,7 +19,6 @@ export default function ChatInterface({ portalConfig, token }) {
   const [threadId, setThreadId] = useState(`thread-${portalConfig.id}-${Date.now().toString().slice(-4)}`);
   const chatBottomRef = useRef(null);
 
-  // Reset messages when portal changes
   useEffect(() => {
     setMessages([
       {
@@ -42,7 +41,6 @@ export default function ChatInterface({ portalConfig, token }) {
 
     if (!textToSend) setInput('');
 
-    // Add user message
     const userMsgId = `user-${Date.now()}`;
     const assistantMsgId = `assistant-${Date.now()}`;
 
@@ -75,7 +73,6 @@ export default function ChatInterface({ portalConfig, token }) {
       const decoder = new TextDecoder('utf-8');
       let streamedText = '';
       let references = [];
-
       let buffer = '';
 
       while (true) {
@@ -84,7 +81,7 @@ export default function ChatInterface({ portalConfig, token }) {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           const trimmed = line.trim();
@@ -119,7 +116,6 @@ export default function ChatInterface({ portalConfig, token }) {
         }
       }
 
-      // Mark streaming done
       setMessages(prev =>
         prev.map(msg =>
           msg.id === assistantMsgId
@@ -159,13 +155,13 @@ export default function ChatInterface({ portalConfig, token }) {
   };
 
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)', minHeight: '520px', overflow: 'hidden' }}>
+    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)', minHeight: '540px', borderRadius: '28px', overflow: 'hidden' }}>
       
       {/* Top Session Control Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border-color)', background: 'rgba(15, 23, 42, 0.4)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MessageSquare size={14} style={{ color: 'var(--portal-accent)' }} />
-          <span>Active Session Thread: <strong style={{ color: '#ffffff', fontFamily: 'var(--font-mono)' }}>{threadId}</strong></span>
+          <MessageSquare size={15} style={{ color: 'var(--portal-accent)' }} />
+          <span>Active Session Thread: <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{threadId}</strong></span>
         </div>
         <button
           onClick={handleNewThread}
@@ -173,13 +169,16 @@ export default function ChatInterface({ portalConfig, token }) {
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'none',
+            background: 'var(--bg-surface)',
             border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            color: '#d1d5db',
-            padding: '4px 10px',
-            fontSize: '0.75rem',
-            cursor: 'pointer'
+            borderRadius: '9999px',
+            color: 'var(--text-main)',
+            padding: '5px 14px',
+            fontSize: '0.775rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'all 0.2s'
           }}
         >
           <RefreshCw size={12} /> New Session
@@ -187,14 +186,14 @@ export default function ChatInterface({ portalConfig, token }) {
       </div>
 
       {/* Messages Feed */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '28px', display: 'flex', flexDirection: 'column', gap: '22px', background: 'var(--bg-surface)' }}>
         {messages.map((msg) => (
           <div
             key={msg.id}
             style={{
               display: 'flex',
               gap: '14px',
-              maxWidth: msg.sender === 'user' ? '80%' : '100%',
+              maxWidth: msg.sender === 'user' ? '82%' : '100%',
               alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
               flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row'
             }}
@@ -202,37 +201,40 @@ export default function ChatInterface({ portalConfig, token }) {
             {/* Avatar */}
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '14px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                background: msg.sender === 'user' ? 'rgba(59, 130, 246, 0.2)' : 'var(--portal-gradient)',
+                background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'var(--portal-gradient)',
                 color: '#ffffff',
-                border: msg.sender === 'user' ? '1px solid rgba(59, 130, 246, 0.4)' : 'none'
+                boxShadow: msg.sender === 'user' ? '0 4px 14px rgba(37, 99, 235, 0.25)' : '0 4px 14px var(--portal-glow)'
               }}
             >
               {msg.sender === 'user' ? <User size={18} /> : <Bot size={18} />}
             </div>
 
-            {/* Message Bubble */}
+            {/* Rounded Message Bubble */}
             <div style={{ flex: 1, maxWidth: '850px' }}>
               <div
                 style={{
-                  background: msg.sender === 'user' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(31, 41, 55, 0.6)',
-                  border: msg.sender === 'user' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border-color)',
-                  borderRadius: msg.sender === 'user' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                  padding: '14px 18px',
+                  background: msg.sender === 'user' ? 'var(--portal-gradient)' : 'var(--bg-card)',
+                  color: msg.sender === 'user' ? '#ffffff' : 'var(--text-main)',
+                  border: msg.sender === 'user' ? 'none' : '1px solid var(--border-color)',
+                  borderRadius: msg.sender === 'user' ? '22px 22px 4px 22px' : '22px 22px 22px 4px',
+                  padding: '16px 22px',
                   fontSize: '0.925rem',
                   lineHeight: '1.6',
-                  color: '#f3f4f6'
+                  boxShadow: msg.sender === 'user' ? '0 6px 20px var(--portal-glow)' : 'var(--shadow-sm)'
                 }}
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {msg.text || (msg.isStreaming ? 'Thinking & retrieving scoped documents...' : '')}
-                </ReactMarkdown>
+                <div className="markdown-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.text || (msg.isStreaming ? 'Thinking & retrieving scoped documents...' : '')}
+                  </ReactMarkdown>
+                </div>
                 {msg.isStreaming && <span className="streaming-cursor"></span>}
               </div>
 
@@ -246,9 +248,9 @@ export default function ChatInterface({ portalConfig, token }) {
         <div ref={chatBottomRef} />
       </div>
 
-      {/* Suggested Prompts */}
+      {/* Suggested Prompts (Pill Badges) */}
       {messages.length <= 2 && (
-        <div style={{ padding: '0 24px 12px 24px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ padding: '8px 24px 14px 24px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}>
           {portalConfig.suggestedPrompts.map((promptText, i) => (
             <button
               key={i}
@@ -257,25 +259,26 @@ export default function ChatInterface({ portalConfig, token }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 12px',
+                padding: '8px 16px',
                 borderRadius: '9999px',
                 background: 'var(--portal-bg-subtle)',
                 border: '1px solid var(--portal-border)',
-                color: '#d1d5db',
-                fontSize: '0.775rem',
+                color: 'var(--portal-text)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
             >
-              <Sparkles size={12} style={{ color: 'var(--portal-accent)' }} />
+              <Sparkles size={13} style={{ color: 'var(--portal-accent)' }} />
               <span>{promptText}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Input Box */}
-      <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(15, 23, 42, 0.7)' }}>
+      {/* Input Box (Rounded Pill Shape) */}
+      <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -291,13 +294,14 @@ export default function ChatInterface({ portalConfig, token }) {
             disabled={isStreaming}
             style={{
               flex: 1,
-              background: 'rgba(31, 41, 55, 0.6)',
+              background: 'var(--bg-surface)',
               border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '12px 18px',
-              color: '#ffffff',
-              fontSize: '0.9rem',
-              outline: 'none'
+              borderRadius: '9999px',
+              padding: '14px 24px',
+              color: 'var(--text-main)',
+              fontSize: '0.925rem',
+              outline: 'none',
+              transition: 'all 0.2s'
             }}
           />
           <button
@@ -307,15 +311,16 @@ export default function ChatInterface({ portalConfig, token }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '46px',
-              height: '46px',
-              borderRadius: '12px',
+              width: '48px',
+              height: '48px',
+              borderRadius: '9999px',
               background: 'var(--portal-gradient)',
               border: 'none',
               color: '#ffffff',
               cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
               opacity: isStreaming || !input.trim() ? 0.5 : 1,
-              boxShadow: '0 4px 14px var(--portal-glow)'
+              boxShadow: '0 6px 18px var(--portal-glow)',
+              transition: 'all 0.2s'
             }}
           >
             <Send size={18} />
