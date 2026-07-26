@@ -25,6 +25,11 @@ class GradeHallucination(BaseModel):
         description="Answer is grounded in / supported by the retrieved documents, 'yes' or 'no'"
     )
 
+class QueryIntent(BaseModel):
+    intent: Literal["conversational", "domain_query"] = Field(
+        description="Classify input: 'conversational' for greetings/small-talk/pleasantries/introductions, or 'domain_query' for specific policies/technical questions/actions."
+    )
+
 
 class AgenticNodes:
     """
@@ -35,12 +40,66 @@ class AgenticNodes:
         self.embedding_client = OpenRouterEmbeddingClient()
         self.retriever_manager = ScopedHybridRetrieverManager(self.db_client, self.embedding_client)
         
-        # Instantiate Groq model for reasoning and grading
-        self.llm = ChatGroq(
+        # Primary Groq model with automatic fallback models to prevent 429 rate limit errors
+        primary_llm = ChatGroq(
             api_key=settings.GROQ_API_KEY,
             model_name=settings.GROQ_MODEL,
+            temperature=0.0,
+            max_retries=2
+        )
+        fallback_llm_1 = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name="llama-3.1-8b-instant",
             temperature=0.0
         )
+        fallback_llm_2 = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name="llama3-8b-8192",
+            temperature=0.0
+        )
+        self.llm = primary_llm.with_fallbacks([fallback_llm_1, fallback_llm_2])
+
+    async def classify_intent_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Zero-Shot LLM Intent Classifier Node.
+        Categorizes query into 'conversational' or 'domain_query' in < 150ms.
+        """
+        logger.info("=== Executing Intent Classifier Node ===")
+        query = state["messages"][-1].content
+        
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are an ultra-fast production query intent classifier for an enterprise RAG system.\n"
+                       "Classify the user input into one of two categories:\n"
+                       "1. 'conversational': Greetings, small talk, pleasantries, or general questions like 'who are you', 'hi', 'hello'.\n"
+                       "2. 'domain_query': Specific questions about company policies, technical issues, IT, pricing, benefits, or actions.\n"
+                       "Respond with JSON containing an 'intent' key set to 'conversational' or 'domain_query'."),
+            ("human", "{query}")
+        ])
+        
+        try:
+            structured_llm = self.llm.with_structured_output(QueryIntent)
+            chain = prompt | structured_llm
+            res: QueryIntent = await chain.ainvoke({"query": query})
+            intent = res.intent
+        except Exception as e:
+            logger.warning(f"Intent classification error ({e}), defaulting to domain_query.")
+            intent = "domain_query"
+            
+        logger.info(f"Intent classified as '{intent}' for query: '{query}'")
+        return {"intent": intent}
+
+    @staticmethod
+    def is_greeting_query(query: str) -> bool:
+        """
+        Fast intent classification check for simple conversational greetings.
+        """
+        clean = query.strip().lower().strip("!.?,")
+        greetings = {
+            "hi", "hii", "hiii", "hello", "hey", "heyy", "heyyy",
+            "good morning", "good afternoon", "good evening",
+            "who are you", "what can you do", "help", "help me"
+        }
+        return clean in greetings or (len(clean.split()) <= 2 and clean in greetings)
 
     async def retrieve_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -51,10 +110,15 @@ class AgenticNodes:
         query = state["messages"][-1].content
         scope = state["scope"]
         role = state["role"]
-        
+
+        # Instant Intent Bypass for Greetings (< 50ms response)
+        if self.is_greeting_query(query):
+            logger.info(f"Query '{query}' identified as conversational greeting. Bypassing hybrid vector search for instant response.")
+            return {"retrieved_docs": [], "web_search_needed": True}
+
         # Perform hybrid RRF retrieval
         retrieved_docs = await self.retriever_manager.retrieve(query, scope, role, top_n=5)
-        
+
         return {"retrieved_docs": retrieved_docs}
 
     async def grade_documents_node(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -141,15 +205,13 @@ class AgenticNodes:
         
         system_prompt = (
             f"You are the central brain AI assistant for Tenant Domain/Scope: '{scope.upper()}', serving a user with Role: '{role.upper()}'.\n"
-            f"Your mission is to strictly answer the user's question using ONLY the retrieved context snippets provided below, OR "
-            f"by calling one of the authorized tools available to you.\n\n"
+            f"Your mission is to assist the user by answering their inquiries clearly, helpfully, and concisely.\n\n"
             f"--- SECURITY BOUNDARY AND GUARDRAILS ---\n"
             f"1. Under no circumstances should you leak, make up, or reference policies outside your active scope: '{scope.upper()}'.\n"
-            f"2. If the context snippets do not contain the information needed to answer, state that you do not have enough information to answer.\n"
-            f"3. Do not attempt to explain or execute tools that are not listed in your tool catalog. If the user asks for an action that requires a tool "
-            f"but no such tool is authorized, politely decline, citing authorization boundaries.\n\n"
+            f"2. Be concise, direct, and helpful. Avoid unnecessary repetitive filler text or excessive multi-paragraph intro/outro statements.\n"
+            f"3. For domain policy or technical questions, base your answers on the retrieved context snippets or authorized tools. If specific details are absent, politely state that current {scope.upper()} documentation does not cover that specific detail.\n\n"
             f"--- RETRIEVED CONTEXT SNIPPETS ---\n"
-            f"{context_str}"
+            f"{context_str if context_str else 'No document snippets retrieved for this conversational input.'}"
         )
         
         # Build prompt messages

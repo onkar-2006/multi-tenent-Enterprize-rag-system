@@ -7,13 +7,15 @@ logger = logging.getLogger(__name__)
 
 class OpenRouterEmbeddingClient:
     """
-    Enterprise embedding client for OpenRouter supporting the Qwen3 Embedding model.
+    Enterprise embedding client for OpenRouter supporting fast text embeddings
+    with persistent connection pooling and in-memory vector caching.
     """
     def __init__(self, api_key: str = None, base_url: str = None, model: str = None, dimensions: int = None):
         self.api_key = api_key or settings.OPENROUTER_API_KEY
         self.base_url = base_url or settings.OPENROUTER_BASE_URL
         self.model = model or settings.EMBEDDING_MODEL
         self.dimensions = dimensions or settings.EMBEDDING_DIMENSION
+        self._query_cache = {}
         
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -21,24 +23,15 @@ class OpenRouterEmbeddingClient:
             "HTTP-Referer": "https://apextech.internal",
             "X-Title": "ApexTech Enterprise AI Engine"
         }
-
-    def _post_request(self, payload: dict) -> dict:
-        url = f"{self.base_url.rstrip('/')}/embeddings"
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(url, headers=self.headers, json=payload)
-            if response.status_code != 200:
-                logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
-                response.raise_for_status()
-            return response.json()
+        self.async_client = httpx.AsyncClient(timeout=10.0, headers=self.headers)
 
     async def _post_request_async(self, payload: dict) -> dict:
         url = f"{self.base_url.rstrip('/')}/embeddings"
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, headers=self.headers, json=payload)
-            if response.status_code != 200:
-                logger.error(f"OpenRouter API async error: {response.status_code} - {response.text}")
-                response.raise_for_status()
-            return response.json()
+        response = await self.async_client.post(url, json=payload)
+        if response.status_code != 200:
+            logger.error(f"OpenRouter API async error: {response.status_code} - {response.text}")
+            response.raise_for_status()
+        return response.json()
 
     def embed_documents(self, texts: List[str], batch_size: int = 16) -> List[List[float]]:
         """
@@ -103,12 +96,18 @@ class OpenRouterEmbeddingClient:
 
     async def embed_query_async(self, text: str) -> List[float]:
         """
-        Asynchronously embeds a single search query.
+        Asynchronously embeds a single search query with in-memory caching.
         """
+        cache_key = text.strip().lower()
+        if cache_key in self._query_cache:
+            logger.info("Using cached query vector embedding.")
+            return self._query_cache[cache_key]
+
         payload = {
             "model": self.model,
-            "input": [text],
-            "dimensions": self.dimensions
+            "input": [text]
         }
         result = await self._post_request_async(payload)
-        return result["data"][0]["embedding"]
+        embedding = result["data"][0]["embedding"]
+        self._query_cache[cache_key] = embedding
+        return embedding

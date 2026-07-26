@@ -13,6 +13,18 @@ nodes = AgenticNodes()
 
 # --- Conditional Routing Functions ---
 
+def route_by_intent(state: Dict[str, Any]) -> Literal["retrieve", "generate_rag"]:
+    """
+    Evaluates intent classified by the zero-shot intent classifier node.
+    If 'conversational', bypasses heavy vector retrieval and routes straight to generate_rag.
+    """
+    intent = state.get("intent", "domain_query")
+    if intent == "conversational":
+        logger.info("Intent is 'conversational'. Bypassing document retrieval for fast generation.")
+        return "generate_rag"
+    logger.info("Intent is 'domain_query'. Routing to hybrid document retrieval.")
+    return "retrieve"
+
 def route_after_retrieve(state: Dict[str, Any]) -> Literal["retrieve", "generate_rag"]:
     """
     Decides whether to retrieve again or proceed to generation.
@@ -78,6 +90,7 @@ def route_after_grade_generation(state: Dict[str, Any]) -> Literal["generate_rag
 workflow = StateGraph(AgentState)
 
 # 1. Register Nodes
+workflow.add_node("classify_intent", nodes.classify_intent_node)
 workflow.add_node("retrieve", nodes.retrieve_node)
 workflow.add_node("grade_documents", nodes.grade_documents_node)
 workflow.add_node("rewrite_query", nodes.rewrite_query_node)
@@ -86,7 +99,17 @@ workflow.add_node("grade_generation", nodes.grade_generation_node)
 workflow.add_node("tool_node", nodes.tool_node)
 
 # 2. Setup Edges
-workflow.set_entry_point("retrieve")
+workflow.set_entry_point("classify_intent")
+
+# Route by Intent Classifier
+workflow.add_conditional_edges(
+    "classify_intent",
+    route_by_intent,
+    {
+        "retrieve": "retrieve",
+        "generate_rag": "generate_rag"
+    }
+)
 
 # From retrieve, we transition to grading documents
 workflow.add_edge("retrieve", "grade_documents")

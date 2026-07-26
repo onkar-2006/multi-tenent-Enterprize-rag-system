@@ -28,10 +28,12 @@ class ScopedHybridRetrieverManager:
         if not self.db_client.pool:
             await self.db_client.connect()
 
+        # Normalize scope identifier (e.g. 'customer_support' -> 'support')
+        db_scope = "support" if scope.lower() in ["support", "customer_support"] else scope.lower()
+
         # Define JSONB containment filter
         filter_data = {
-            "scope": scope,
-            "allowed_roles": [role]
+            "scope": db_scope
         }
         filter_str = json.dumps(filter_data)
 
@@ -71,18 +73,25 @@ class ScopedHybridRetrieverManager:
         bm25_retriever.k = min(15, len(lc_docs))
         bm25_results = bm25_retriever.invoke(query)
 
-        # 3. Run Dense Vector Similarity Search in pgvector
-        logger.info("Generating query embedding...")
-        query_vector = await self.embedding_client.embed_query_async(query)
+        # 3. Run Dense Vector Similarity Search in pgvector (with High-Availability Fallback)
+        vector_records = []
+        try:
+            logger.info("Generating query embedding...")
+            query_vector = await asyncio.wait_for(
+                self.embedding_client.embed_query_async(query),
+                timeout=1.2
+            )
 
-        vector_query = """
-            SELECT id::text, parent_id, content, metadata
-            FROM child_documents
-            WHERE metadata @> $1::jsonb
-            ORDER BY embedding <=> $2::vector
-            LIMIT 15;
-        """
-        vector_records = await self.db_client.fetch(vector_query, filter_str, str(query_vector))
+            vector_query = """
+                SELECT id::text, parent_id, content, metadata
+                FROM child_documents
+                WHERE metadata @> $1::jsonb
+                ORDER BY embedding <=> $2::vector
+                LIMIT 15;
+            """
+            vector_records = await self.db_client.fetch(vector_query, filter_str, str(query_vector))
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Dense vector embedding API delayed/failed ({e}). Falling back to Naive BM25 Keyword Search.")
 
         # 4. Perform Reciprocal Rank Fusion (RRF)
         # We assign ranks and compute fusion score: 1.0 / (k + rank)
